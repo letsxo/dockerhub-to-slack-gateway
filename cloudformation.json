@@ -1,0 +1,130 @@
+{
+  "Resources": {
+    "DockerHubToSlackAPI": {
+      "Type": "AWS::ApiGateway::RestApi",
+      "Properties": {
+        "Name": "DockerHubToSlackAPI"
+      }
+    },
+
+    "APIStaticPart": {
+      "Type": "AWS::ApiGateway::Resource",
+      "Properties": {
+        "PathPart": "services",
+        "RestApiId": { "Ref": "DockerHubToSlackAPI" },
+        "ParentId": { "Fn::GetAtt": ["DockerHubToSlackAPI", "RootResourceId"] }
+      },
+      "DependsOn": "DockerHubToSlackAPI"
+    },
+
+    "APIDynamicPart": {
+      "Type": "AWS::ApiGateway::Resource",
+      "Properties": {
+        "PathPart": "{service+}",
+        "RestApiId": { "Ref": "DockerHubToSlackAPI" },
+        "ParentId": { "Ref": "APIStaticPart" }
+      },
+      "DependsOn": "APIStaticPart"
+    },
+
+    "APIServicePostMethod": {
+      "Type": "AWS::ApiGateway::Method",
+      "Properties": {
+        "AuthorizationType": "NONE",
+        "HttpMethod": "POST",
+        "ResourceId": { "Ref": "APIDynamicPart" },
+        "RestApiId": { "Ref": "DockerHubToSlackAPI" },
+        "Integration": {
+          "Type": "AWS_PROXY",
+          "IntegrationHttpMethod": "POST",
+          "Uri": { "Fn::Sub":"arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${DockerHubToSlackFunction.Arn}/invocations" }
+        }
+      },
+      "DependsOn": [
+        "APIDynamicPart",
+        "DockerHubToSlackFunction"
+      ]
+    },
+
+    "APIDeployment": {
+      "Type": "AWS::ApiGateway::Deployment",
+      "Properties": {
+        "RestApiId": { "Ref": "DockerHubToSlackAPI" }
+      },
+      "DependsOn": "APIServicePostMethod"
+    },
+
+    "APIStage": {
+      "Type": "AWS::ApiGateway::Stage",
+      "Properties": {
+        "DeploymentId": { "Ref": "APIDeployment" },
+        "RestApiId": { "Ref": "DockerHubToSlackAPI" },
+        "StageName": "v1"
+      },
+      "DependsOn": "APIDeployment"
+    },
+
+    "DockerHubToSlackFunction": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Code": {
+          "S3Bucket": "dockerhubtoslacklambda",
+          "S3Key": "lambda.zip"
+        },
+        "Runtime": "python2.7",
+        "Handler": "lambda.handler",
+        "Timeout": "5",
+        "Role": { "Fn::GetAtt": ["LambdaExecutionRole", "Arn"] },
+      },
+      "DependsOn": "LambdaExecutionRole"
+    },
+
+    "LambdaExecutionRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "Path": "/",
+        "Policies": [
+          {
+            "PolicyName": "lambdaexecution",
+            "PolicyDocument": {
+              "Version" : "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "logs:CreateLogGroup",
+                    "logs:CreateLogStream",
+                    "logs:PutLogEvents"
+                  ],
+                  "Resource": "arn:aws:logs:*:*:*"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+
+    "LambdaInvokePermission": {
+      "Type": "AWS::Lambda::Permission",
+      "Properties": {
+        "Action": "lambda:InvokeFunction",
+        "FunctionName": { "Fn::GetAtt": ["DockerHubToSlackFunction", "Arn"] },
+        "Principal": "apigateway.amazonaws.com"
+      },
+      "DependsOn": "DockerHubToSlackFunction"
+    }
+  }
+}
