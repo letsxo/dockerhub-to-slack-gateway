@@ -5,9 +5,9 @@ Inspired by https://github.com/neonadventures/slack-docker-hub-integration which
 
 Unfortunately there's no direct connection between Docker Hub and Slack to get notifications about automated builds so you have to run your own bridging service. If you don't have your own server or don't feel comfortable running an app 24/7 this AWS based gateway if for you. 
 
-It relies on API Gateway and Lambda so you only have to pay when notifications do happen and the pricing of these services are ridiculous so won't feel anything.
+It relies on AWS API Gateway and AWS Lambda so you only have to pay when notifications do happen and the pricing of these services are ridiculous so won't feel anything.
 
-For ease of your I have included a [CloudFormation](https://aws.amazon.com/cloudformation/) template wich can be used to fire up everything needed.
+For ease of your I have included an [AWS CloudFormation](https://aws.amazon.com/cloudformation/) template wich can be used to fire up everything needed.
 
 In the end Docker Hub will send the notifications to your stack which will call out to Slack with the correct messages format.
 
